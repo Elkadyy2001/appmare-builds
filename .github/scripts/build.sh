@@ -20,12 +20,26 @@ detect_bundle_id() {
 # ── Install .NET SDK ───────────────────────────────────────────────────────
 install_dotnet() {
     local major="$1"
+    export PATH="$HOME/.dotnet:$PATH"
+    export DOTNET_ROOT="$HOME/.dotnet"
+    if [[ -x "$HOME/.dotnet/dotnet" ]]; then
+        echo ">>> .NET SDK already cached ($(dotnet --version))"
+        return
+    fi
     echo ">>> Installing .NET ${major}.0..."
     curl -fsSL https://dot.net/v1/dotnet-install.sh | \
         bash -s -- --channel "${major}.0" --install-dir "$HOME/.dotnet"
-    export PATH="$HOME/.dotnet:$PATH"
-    export DOTNET_ROOT="$HOME/.dotnet"
     dotnet --version
+}
+
+# ── Install workload (skips if already present) ────────────────────────────
+workload_install() {
+    local wl="$1"
+    if dotnet workload list 2>/dev/null | grep -q "^${wl}"; then
+        echo ">>> Workload ${wl} already cached, skipping"
+        return
+    fi
+    dotnet workload install "$wl" --skip-manifest-update
 }
 
 # ── Download and extract project ZIP ──────────────────────────────────────
@@ -99,6 +113,9 @@ trap 'notify "❌ ${PLATFORM} build failed"' ERR
 # Platform builds
 # ═══════════════════════════════════════════════════════════════════════════
 
+DOTNET_MAJOR=$(detect_dotnet_major)
+echo ">>> .NET major version: ${DOTNET_MAJOR}"
+
 case "$PLATFORM" in
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -106,9 +123,8 @@ case "$PLATFORM" in
 # ─────────────────────────────────────────────────────────────────────────
 Androidnewapk)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    workload_install maui-android
 
     keytool -genkeypair -v \
         -keystore "$(pwd)/AppMare.keystore" \
@@ -142,9 +158,8 @@ Androidnewapk)
 # ─────────────────────────────────────────────────────────────────────────
 androidkeystore)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    workload_install maui-android
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
@@ -169,9 +184,8 @@ androidkeystore)
 # ─────────────────────────────────────────────────────────────────────────
 playnew)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    workload_install maui-android
     BUNDLE_ID=$(detect_bundle_id)
 
     keytool -genkeypair -v \
@@ -212,9 +226,8 @@ playnew)
 # ─────────────────────────────────────────────────────────────────────────
 playkey)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    workload_install maui-android
     BUNDLE_ID=$(detect_bundle_id)
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
@@ -245,9 +258,8 @@ playkey)
 # ─────────────────────────────────────────────────────────────────────────
 IOS)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-ios --skip-manifest-update
+    workload_install maui-ios
     BUNDLE_ID=$(detect_bundle_id)
 
     sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)" || true
@@ -286,9 +298,8 @@ IOS)
 # ─────────────────────────────────────────────────────────────────────────
 MAC)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-maccatalyst --skip-manifest-update
+    workload_install maui-maccatalyst
     BUNDLE_ID=$(detect_bundle_id)
 
     setup_keychain
@@ -337,7 +348,6 @@ Windows)
         powershell -Command "Expand-Archive -Path AppName.zip -DestinationPath . -Force"
     fi
 
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
 
     dotnet publish \
@@ -364,125 +374,19 @@ Windows)
 # ─────────────────────────────────────────────────────────────────────────
 Web)
     download_project
-    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install wasm-tools
-    
-    dotnet workload restore SampleApp/SampleApp.csproj
+    workload_install wasm-tools
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-browser" -c Release
+    BROWSER_PROJ=$(find . -name "*.Browser.csproj" | head -1)
+    dotnet publish "$BROWSER_PROJ" -c Release
 
     WWWROOT=$(find . -path "*/publish/wwwroot" -type d | head -1)
 
-    echo ">>> Deploying to Firebase Hosting..."
+    # Deploy via Firebase Hosting REST API (Python stdlib — no npm/firebase-tools)
+    python3 "$(dirname "$0")/firebase_deploy.py"
 
-    # Get access token from refresh token
-    ACCESS_TOKEN=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
-        -d "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
-        -d "client_id=${GOOGLE_CLIENT_ID}" \
-        -d "grant_type=refresh_token" \
-        | python3 -c "
-import sys,json
-resp = json.load(sys.stdin)
-if 'access_token' in resp:
-    print(resp['access_token'])
-else:
-    err = resp.get('error','unknown')
-    print(f'ERROR: Google token refresh failed ({err}). Re-authenticate in AppMare app.', file=sys.stderr)
-    sys.exit(1)
-")
-
-    SITE_ID="$FIREBASE_PROJECT_ID"
-
-    # Step 1: Create hosting site (idempotent — ALREADY_EXISTS is OK)
-    echo ">>> Creating hosting site..."
-    curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d '{"appId":""}' \
-        "https://firebasehosting.googleapis.com/v1beta1/projects/${FIREBASE_PROJECT_ID}/sites?siteId=${SITE_ID}" \
-        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('error',{}).get('status','OK'))"
-
-    # Step 2: Create version with status=CREATED
-    echo ">>> Creating version..."
-    VERSION_NAME=$(curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d '{"status":"CREATED"}' \
-        "https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/${SITE_ID}/versions" \
-        | python3 -c "import sys,json; print(json.load(sys.stdin)['name'])")
-    echo "Version: $VERSION_NAME"
-
-    # Step 3: Compute SHA256 hashes of gzipped files and call populateFiles
-    echo ">>> Computing file hashes..."
-    FILES_JSON="{"
-    FIRST=true
-    while IFS= read -r -d '' FILE; do
-        REL_PATH="${FILE#$WWWROOT/}"
-        HASH=$(python3 -c "
-import hashlib, gzip, sys
-with open('$FILE', 'rb') as f:
-    gzipped = gzip.compress(f.read(), mtime=0)
-    sys.stdout.write(hashlib.sha256(gzipped).hexdigest())
-")
-        if [ "$FIRST" = true ]; then
-            FILES_JSON+="\"$REL_PATH\":\"$HASH\""
-            FIRST=false
-        else
-            FILES_JSON+=",\"$REL_PATH\":\"$HASH\""
-        fi
-    done < <(find "$WWWROOT" -type f -print0)
-    FILES_JSON+="}"
-
-    echo ">>> Populating files..."
-    POPULATE=$(curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "{\"files\":$FILES_JSON}" \
-        "https://firebasehosting.googleapis.com/v1beta1/$VERSION_NAME:populateFiles")
-    UPLOAD_URL=$(echo "$POPULATE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('uploadUrl',''))")
-    IFS=$'\n' read -r -d '' -a REQUIRED_HASHES < <(
-        echo "$POPULATE" | python3 -c "
-import sys,json
-for h in json.load(sys.stdin).get('uploadRequiredHashes',[]):
-    print(h)
-" && printf '\0'
-    )
-
-    # Step 4: Upload files that the server doesn't have
-    echo ">>> Uploading ${#REQUIRED_HASHES[@]} files..."
-    for HASH in "${REQUIRED_HASHES[@]}"; do
-        FILE=$(find "$WWWROOT" -type f -exec python3 -c "
-import hashlib, gzip, sys
-with open('{}', 'rb') as f:
-    gzipped = gzip.compress(f.read(), mtime=0)
-    if hashlib.sha256(gzipped).hexdigest() == '$HASH':
-        sys.exit(0)
-sys.exit(1)
-" \; -print -quit)
-        python3 -c "
-import gzip, sys
-with open('$FILE', 'rb') as f:
-    sys.stdout.buffer.write(gzip.compress(f.read(), mtime=0))
-" | curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @- \
-            "$UPLOAD_URL/$HASH" > /dev/null
-    done
-
-    # Step 5: Finalize version
-    echo ">>> Finalizing version..."
-    curl -s -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d '{"status":"FINALIZED","config":{"rewrites":[],"redirects":[],"headers":[]}}' \
-        "https://firebasehosting.googleapis.com/v1beta1/$VERSION_NAME?updateMask=status,config" > /dev/null
-
-    # Step 6: Release to live channel
-    echo ">>> Releasing..."
-    curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d '{}' \
-        "https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/${SITE_ID}/channels/live/releases?versionName=${VERSION_NAME}" > /dev/null
-
-    set_env "web-url" "https://${SITE_ID}.web.app"
-    notify "✅ Web app live at https://${SITE_ID}.web.app"
+    set_env "web-url" "https://${FIREBASE_PROJECT_ID}.web.app"
+    notify "✅ Web app live at https://${FIREBASE_PROJECT_ID}.web.app"
     ;;
 
 *)
