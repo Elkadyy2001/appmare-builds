@@ -55,9 +55,23 @@ token_body = urllib.parse.urlencode({
     "refresh_token": refresh_token,
 }).encode()
 
-req = urllib.request.Request(TOKEN_URL, data=token_body, method="POST")
-with urllib.request.urlopen(req) as resp:
-    access_token = json.loads(resp.read().decode())["access_token"]
+try:
+    req = urllib.request.Request(TOKEN_URL, data=token_body, method="POST")
+    with urllib.request.urlopen(req) as resp:
+        token_data = json.loads(resp.read().decode())
+    access_token = token_data.get("access_token")
+    if not access_token:
+        err = token_data.get("error", "unknown")
+        print(f"ERROR: Google token refresh failed ({err}). Re-authenticate in AppMare app.", file=sys.stderr)
+        raise SystemExit(1)
+except urllib.error.HTTPError as e:
+    body = e.read().decode()
+    try:
+        err = json.loads(body).get("error", str(e.code))
+    except json.JSONDecodeError:
+        err = body[:200]
+    print(f"ERROR: Google token refresh failed ({err}). Re-authenticate in AppMare app.", file=sys.stderr)
+    raise SystemExit(1)
 
 print(">>> Access token obtained", flush=True)
 
