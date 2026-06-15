@@ -41,16 +41,10 @@ fi
 
 export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
 
-# Build model string: most providers use "provider/model" but "opencode-go" uses just the model name
-if [ "$PROVIDER" = "opencode-go" ]; then
-    MODEL_STR="$MODEL"
-else
-    MODEL_STR="$PROVIDER/$MODEL"
-fi
+echo ">>> Running OpenCode autofix  model=$PROVIDER/$MODEL"
 
-echo ">>> Running OpenCode autofix  model=$MODEL_STR"
-
+# OpenCode model format is provider/model
 opencode run \
-    -m "$MODEL_STR" \
+    -m "$PROVIDER/$MODEL" \
     --dangerously-skip-permissions \
     "$PROMPT"
