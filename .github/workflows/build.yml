@@ -1,0 +1,243 @@
+name: AppMare Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Build target'
+        required: true
+        type: choice
+        options:
+          - Androidnewapk
+          - androidkeystore
+          - playnew
+          - playkey
+          - IOS
+          - MAC
+          - Windows
+          - Web
+      track:
+        description: 'Play Store track (Android Play only)'
+        type: choice
+        options: [production, beta, alpha, internal]
+        default: production
+      env_id:
+        description: 'Environment ID (set by AppMare, contains build secrets)'
+        required: true
+        type: string
+      ai_provider:
+        description: 'AI provider for auto-fix (anthropic | openai | google | groq | openrouter)'
+        type: string
+        default: anthropic
+      ai_model:
+        description: 'AI model for auto-fix (e.g. claude-sonnet-4-5, gpt-4o)'
+        type: string
+        default: claude-sonnet-4-5
+      retry:
+        description: 'Auto-retry flag (set by bot, do not set manually)'
+        type: boolean
+        default: false
+
+jobs:
+
+  # ── Android ────────────────────────────────────────────────────────────────
+  android:
+    runs-on: macos-latest
+    environment: ${{ inputs.env_id }}
+    if: contains(fromJson('["Androidnewapk","androidkeystore","playnew","playkey"]'), inputs.platform)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: bash .github/scripts/build.sh "${{ inputs.platform }}"
+        env:
+          PROJECTURL:       ${{ secrets.PROJECTURL }}
+          KEYSTOREALIAS:    ${{ secrets.KEYSTOREALIAS }}
+          KEYSTOREPASS:     ${{ secrets.KEYSTOREPASS }}
+          KEYURL:           ${{ secrets.KEYURL }}
+          PLAYDATA:         ${{ secrets.PLAYDATA }}
+          PLAY_TRACK:       ${{ inputs.track }}
+          ONESIGNALAPI:     ${{ secrets.ONESIGNALAPI }}
+          ONESIGNAL_SUB_ID: ${{ secrets.ONESIGNAL_SUB_ID }}
+
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.platform }}-build
+          if-no-files-found: ignore
+          path: |
+            ${{ env.aab-path }}
+            ${{ env.apk-path }}
+            ${{ env.key-path }}
+            ${{ env.creds-path }}
+
+      - name: Auto-fix with OpenCode
+        if: failure() && inputs.retry == false
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          GH_TOKEN:   ${{ secrets.PAT }}
+        run: |
+          sleep 5
+          gh run view ${{ github.run_id }} --log-failed > /tmp/failed.txt 2>&1 || true
+          bash .github/scripts/autofix.sh \
+            --provider "${{ inputs.ai_provider }}" \
+            --model    "${{ inputs.ai_model }}" \
+            --api-key  "$AI_API_KEY" \
+            --prompt   "GitHub Actions build failed for platform ${{ inputs.platform }}. Failed logs: $(cat /tmp/failed.txt). Fix .github/scripts/build.sh or SampleApp/ files. Do NOT touch .github/workflows/build.yml."
+          git config user.email "bot@appmare.io"
+          git config user.name "AppMare Bot"
+          git add -A
+          git commit -m "Auto-fix: ${{ inputs.platform }}" && git push || echo "Nothing to commit"
+          gh workflow run build.yml \
+            -f platform="${{ inputs.platform }}" \
+            -f track="${{ inputs.track }}" \
+            -f env_id="${{ inputs.env_id }}" \
+            -f ai_provider="${{ inputs.ai_provider }}" \
+            -f ai_model="${{ inputs.ai_model }}" \
+            -f retry=true
+
+  # ── Apple (iOS + macOS) ───────────────────────────────────────────────────
+  apple:
+    runs-on: macos-15
+    environment: ${{ inputs.env_id }}
+    if: inputs.platform == 'IOS' || inputs.platform == 'MAC'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: bash .github/scripts/build.sh "${{ inputs.platform }}"
+        env:
+          PROJECTURL:       ${{ secrets.PROJECTURL }}
+          APIKEY:           ${{ secrets.APIKEY }}
+          KEYID:            ${{ secrets.KEYID }}
+          ISSUERID:         ${{ secrets.ISSUERID }}
+          PAT:              ${{ secrets.PAT }}
+          GITURL:           ${{ secrets.GITURL }}
+          ONESIGNALAPI:     ${{ secrets.ONESIGNALAPI }}
+          ONESIGNAL_SUB_ID: ${{ secrets.ONESIGNAL_SUB_ID }}
+
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.platform }}-build
+          if-no-files-found: ignore
+          path: |
+            ${{ env.ipa-path }}
+            ${{ env.pkg-path }}
+
+      - name: Auto-fix with OpenCode
+        if: failure() && inputs.retry == false
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          GH_TOKEN:   ${{ secrets.PAT }}
+        run: |
+          sleep 5
+          gh run view ${{ github.run_id }} --log-failed > /tmp/failed.txt 2>&1 || true
+          bash .github/scripts/autofix.sh \
+            --provider "${{ inputs.ai_provider }}" \
+            --model    "${{ inputs.ai_model }}" \
+            --api-key  "$AI_API_KEY" \
+            --prompt   "GitHub Actions build failed for platform ${{ inputs.platform }}. Failed logs: $(cat /tmp/failed.txt). Fix .github/scripts/build.sh or SampleApp/ files. Do NOT touch .github/workflows/build.yml."
+          git config user.email "bot@appmare.io"
+          git config user.name "AppMare Bot"
+          git add -A
+          git commit -m "Auto-fix: ${{ inputs.platform }}" && git push || echo "Nothing to commit"
+          gh workflow run build.yml \
+            -f platform="${{ inputs.platform }}" \
+            -f env_id="${{ inputs.env_id }}" \
+            -f ai_provider="${{ inputs.ai_provider }}" \
+            -f ai_model="${{ inputs.ai_model }}" \
+            -f retry=true
+
+  # ── Windows ────────────────────────────────────────────────────────────────
+  windows:
+    runs-on: windows-latest
+    environment: ${{ inputs.env_id }}
+    if: inputs.platform == 'Windows'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: bash
+        run: bash .github/scripts/build.sh Windows
+        env:
+          PROJECTURL:       ${{ secrets.PROJECTURL }}
+          ONESIGNALAPI:     ${{ secrets.ONESIGNALAPI }}
+          ONESIGNAL_SUB_ID: ${{ secrets.ONESIGNAL_SUB_ID }}
+
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-build
+          if-no-files-found: ignore
+          path: ${{ env.exe-path }}
+
+      - name: Auto-fix with OpenCode
+        if: failure() && inputs.retry == false
+        shell: bash
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          GH_TOKEN:   ${{ secrets.PAT }}
+        run: |
+          sleep 5
+          gh run view ${{ github.run_id }} --log-failed > /tmp/failed.txt 2>&1 || true
+          bash .github/scripts/autofix.sh \
+            --provider "${{ inputs.ai_provider }}" \
+            --model    "${{ inputs.ai_model }}" \
+            --api-key  "$AI_API_KEY" \
+            --prompt   "GitHub Actions build failed for platform Windows. Failed logs: $(cat /tmp/failed.txt). Fix .github/scripts/build.sh or SampleApp/ files. Do NOT touch .github/workflows/build.yml."
+          git config user.email "bot@appmare.io"
+          git config user.name "AppMare Bot"
+          git add -A
+          git commit -m "Auto-fix: Windows" && git push || echo "Nothing to commit"
+          gh workflow run build.yml \
+            -f platform="Windows" \
+            -f env_id="${{ inputs.env_id }}" \
+            -f ai_provider="${{ inputs.ai_provider }}" \
+            -f ai_model="${{ inputs.ai_model }}" \
+            -f retry=true
+
+  # ── Web (WASM → Firebase Hosting) ─────────────────────────────────────────
+  web:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.env_id }}
+    if: inputs.platform == 'Web'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & Deploy
+        run: bash .github/scripts/build.sh Web
+        env:
+          PROJECTURL:           ${{ secrets.PROJECTURL }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_CLIENT_ID:     ${{ secrets.GOOGLE_CLIENT_ID }}
+          FIREBASE_PROJECT_ID:  ${{ secrets.FIREBASE_PROJECT_ID }}
+          ONESIGNALAPI:         ${{ secrets.ONESIGNALAPI }}
+          ONESIGNAL_SUB_ID:     ${{ secrets.ONESIGNAL_SUB_ID }}
+
+      - name: Auto-fix with OpenCode
+        if: failure() && inputs.retry == false
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          GH_TOKEN:   ${{ secrets.PAT }}
+        run: |
+          sleep 5
+          gh run view ${{ github.run_id }} --log-failed > /tmp/failed.txt 2>&1 || true
+          bash .github/scripts/autofix.sh \
+            --provider "${{ inputs.ai_provider }}" \
+            --model    "${{ inputs.ai_model }}" \
+            --api-key  "$AI_API_KEY" \
+            --prompt   "GitHub Actions build failed for platform Web. Failed logs: $(cat /tmp/failed.txt). Fix .github/scripts/build.sh or SampleApp.Browser/ files. Do NOT touch .github/workflows/build.yml."
+          git config user.email "bot@appmare.io"
+          git config user.name "AppMare Bot"
+          git add -A
+          git commit -m "Auto-fix: Web" && git push || echo "Nothing to commit"
+          gh workflow run build.yml \
+            -f platform="Web" \
+            -f env_id="${{ inputs.env_id }}" \
+            -f ai_provider="${{ inputs.ai_provider }}" \
+            -f ai_model="${{ inputs.ai_model }}" \
+            -f retry=true
