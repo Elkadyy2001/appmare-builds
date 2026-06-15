@@ -9,6 +9,7 @@ Required environment variables:
   GOOGLE_REFRESH_TOKEN   refresh token issued for the client above
 """
 
+import concurrent.futures
 import gzip
 import hashlib
 import json
@@ -115,12 +116,12 @@ required = set(populated.get("uploadRequiredHashes", []))
 
 # ── Step 5: Upload files that Firebase doesn't have yet ────────────────
 # Method: POST (not PUT).  Body is raw gzip bytes (hash was of gzip'd bytes).
-# NO Content-Encoding header — the gzip'd bytes ARE the content.
+# Uses ThreadPoolExecutor for concurrent uploads (default 50 workers).
 if upload_url and required:
-    for h in required:
+    def _upload(h):
         gzipped = file_gzipped.get(h)
         if gzipped is None:
-            continue
+            return
         path = next((p for p, ph in file_hashes.items() if ph == h), None)
         content_type, _ = mimetypes.guess_type(path or "")
         print(f">>> Uploading {path} …", flush=True)
@@ -135,6 +136,11 @@ if upload_url and required:
             if resp.status != 200:
                 print(f"Upload failed ({resp.status}): {resp.read().decode()}", file=sys.stderr)
                 raise SystemExit(1)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as pool:
+        futures = [pool.submit(_upload, h) for h in required]
+        for f in concurrent.futures.as_completed(futures):
+            f.result()  # re-raise any exception
 
 # ── Step 6: Finalize the version ───────────────────────────────────────
 print(">>> Finalizing version…", flush=True)
