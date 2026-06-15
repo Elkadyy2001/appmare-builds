@@ -37,8 +37,9 @@ esac
 if ! command -v opencode &>/dev/null; then
     echo ">>> Installing OpenCode CLI..."
     curl -fsSL https://opencode.ai/install | bash
-    export PATH="$HOME/.local/bin:$PATH"
 fi
+
+export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
 
 echo ">>> Running OpenCode autofix  model=$PROVIDER/$MODEL"
 

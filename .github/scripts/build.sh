@@ -20,26 +20,12 @@ detect_bundle_id() {
 # ── Install .NET SDK ───────────────────────────────────────────────────────
 install_dotnet() {
     local major="$1"
-    export PATH="$HOME/.dotnet:$PATH"
-    export DOTNET_ROOT="$HOME/.dotnet"
-    if [[ -x "$HOME/.dotnet/dotnet" ]]; then
-        echo ">>> .NET SDK already cached ($(dotnet --version))"
-        return
-    fi
     echo ">>> Installing .NET ${major}.0..."
     curl -fsSL https://dot.net/v1/dotnet-install.sh | \
         bash -s -- --channel "${major}.0" --install-dir "$HOME/.dotnet"
+    export PATH="$HOME/.dotnet:$PATH"
+    export DOTNET_ROOT="$HOME/.dotnet"
     dotnet --version
-}
-
-# ── Install workload (skips if already present) ────────────────────────────
-workload_install() {
-    local wl="$1"
-    if dotnet workload list 2>/dev/null | grep -q "^${wl}"; then
-        echo ">>> Workload ${wl} already cached, skipping"
-        return
-    fi
-    dotnet workload install "$wl" --skip-manifest-update
 }
 
 # ── Download and extract project ZIP ──────────────────────────────────────
@@ -113,9 +99,6 @@ trap 'notify "❌ ${PLATFORM} build failed"' ERR
 # Platform builds
 # ═══════════════════════════════════════════════════════════════════════════
 
-DOTNET_MAJOR=$(detect_dotnet_major)
-echo ">>> .NET major version: ${DOTNET_MAJOR}"
-
 case "$PLATFORM" in
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -123,8 +106,9 @@ case "$PLATFORM" in
 # ─────────────────────────────────────────────────────────────────────────
 Androidnewapk)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install maui-android
+    dotnet workload install maui-android --skip-manifest-update
 
     keytool -genkeypair -v \
         -keystore "$(pwd)/AppMare.keystore" \
@@ -158,8 +142,9 @@ Androidnewapk)
 # ─────────────────────────────────────────────────────────────────────────
 androidkeystore)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install maui-android
+    dotnet workload install maui-android --skip-manifest-update
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
@@ -184,8 +169,9 @@ androidkeystore)
 # ─────────────────────────────────────────────────────────────────────────
 playnew)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install maui-android
+    dotnet workload install maui-android --skip-manifest-update
     BUNDLE_ID=$(detect_bundle_id)
 
     keytool -genkeypair -v \
@@ -226,8 +212,9 @@ playnew)
 # ─────────────────────────────────────────────────────────────────────────
 playkey)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install maui-android
+    dotnet workload install maui-android --skip-manifest-update
     BUNDLE_ID=$(detect_bundle_id)
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
@@ -258,8 +245,9 @@ playkey)
 # ─────────────────────────────────────────────────────────────────────────
 IOS)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install maui-ios
+    dotnet workload install maui-ios --skip-manifest-update
     BUNDLE_ID=$(detect_bundle_id)
 
     sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)" || true
@@ -298,8 +286,9 @@ IOS)
 # ─────────────────────────────────────────────────────────────────────────
 MAC)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install maui-maccatalyst
+    dotnet workload install maui-maccatalyst --skip-manifest-update
     BUNDLE_ID=$(detect_bundle_id)
 
     setup_keychain
@@ -348,6 +337,7 @@ Windows)
         powershell -Command "Expand-Archive -Path AppName.zip -DestinationPath . -Force"
     fi
 
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
 
     dotnet publish \
@@ -374,11 +364,13 @@ Windows)
 # ─────────────────────────────────────────────────────────────────────────
 Web)
     download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    workload_install wasm-tools
+    dotnet workload install wasm-tools
+    
+    dotnet workload restore SampleApp/SampleApp.csproj
 
-    BROWSER_PROJ=$(find . -name "*.Browser.csproj" | head -1)
-    dotnet publish "$BROWSER_PROJ" -c Release
+    dotnet publish -f "net${DOTNET_MAJOR}.0-browser" -c Release
 
     WWWROOT=$(find . -path "*/publish/wwwroot" -type d | head -1)
 
