@@ -372,7 +372,7 @@ Web)
 
     dotnet publish -f "net${DOTNET_MAJOR}.0-browser" -c Release
 
-    WWWROOT=$(find . -path "*/publish/wwwroot" -type d | head -1)
+    export WWWROOT=$(find . -path "*/publish/wwwroot" -type d | head -1)
 
     # Deploy via Firebase Hosting REST API (Python stdlib — no npm/firebase-tools)
     python3 "$(dirname "$0")/firebase_deploy.py"
