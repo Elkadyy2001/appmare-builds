@@ -23,16 +23,6 @@ done
 : "${API_KEY:?--api-key is required}"
 : "${PROMPT:?--prompt is required}"
 
-# Map provider → correct env var that OpenCode expects
-case "$PROVIDER" in
-    anthropic)   export ANTHROPIC_API_KEY="$API_KEY" ;;
-    openai)      export OPENAI_API_KEY="$API_KEY" ;;
-    google)      export GOOGLE_API_KEY="$API_KEY" ;;
-    groq)        export GROQ_API_KEY="$API_KEY" ;;
-    openrouter)  export OPENROUTER_API_KEY="$API_KEY" ;;
-    *)           export OPENAI_API_KEY="$API_KEY" ;;
-esac
-
 # Install OpenCode if not present
 if ! command -v opencode &>/dev/null; then
     echo ">>> Installing OpenCode CLI..."
@@ -40,6 +30,31 @@ if ! command -v opencode &>/dev/null; then
 fi
 
 export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+
+# Write credentials for the configured provider
+case "$PROVIDER" in
+    opencode-go)
+        mkdir -p "$HOME/.local/share/opencode"
+        python3 -c "
+import json, os
+path = os.path.expanduser('~/.local/share/opencode/auth.json')
+try:
+    with open(path) as f:
+        data = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    data = {}
+data['opencode-go'] = {'type': 'api', 'key': '$API_KEY'}
+with open(path, 'w') as f:
+    json.dump(data, f)
+"
+        ;;
+    anthropic)   export ANTHROPIC_API_KEY="$API_KEY" ;;
+    openai)      export OPENAI_API_KEY="$API_KEY" ;;
+    google)      export GOOGLE_API_KEY="$API_KEY" ;;
+    groq)        export GROQ_API_KEY="$API_KEY" ;;
+    openrouter)  export OPENROUTER_API_KEY="$API_KEY" ;;
+    *)           export OPENAI_API_KEY="$API_KEY" ;;
+esac
 
 echo ">>> Running OpenCode autofix  model=$PROVIDER/$MODEL"
 
