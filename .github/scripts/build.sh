@@ -30,6 +30,11 @@ install_dotnet() {
 
 # ── Download and extract project ZIP ──────────────────────────────────────
 download_project() {
+    # Skip download if already extracted (e.g., after AI auto-fix retry)
+    if [ -f "SampleApp/SampleApp.csproj" ]; then
+        echo ">>> Project already exists, skipping download to preserve fixes"
+        return
+    fi
     echo ">>> Downloading project..."
     wget -q -O AppName.zip "$PROJECTURL"
     command -v 7z &>/dev/null || brew install sevenzip -q
