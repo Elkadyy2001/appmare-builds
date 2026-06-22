@@ -97,9 +97,6 @@ install_apple_signing() {
 # ── Set artifact paths as GitHub env vars ─────────────────────────────────
 set_env() { echo "${1}=${2}" >> "$GITHUB_ENV"; }
 
-# ── Trap: notify on any error ─────────────────────────────────────────────
-trap 'notify "❌ ${PLATFORM} build failed"' ERR
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Platform builds
 # ═══════════════════════════════════════════════════════════════════════════

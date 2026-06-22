@@ -81,6 +81,14 @@ jobs:
             BUILD_EXIT=${PIPESTATUS[0]}
           fi
 
+          # Notify only after the final result (post-retry if applicable)
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            curl -sf --location 'https://api.onesignal.com/notifications' \
+              --header 'Content-Type: application/json' \
+              --header "Authorization: Basic ${ONESIGNALAPI}" \
+              --data "{\"app_id\": \"897e14e3-7897-4206-aa80-ee2fd35c7c0d\", \"include_subscription_ids\": [\"${ONESIGNAL_SUB_ID}\"], \"contents\": {\"en\": \"❌ Build failed for ${{ inputs.platform }}\"}}"
+          fi
+
           exit "$BUILD_EXIT"
 
   # ── Apple (iOS + macOS) ───────────────────────────────────────────────────
@@ -115,6 +123,15 @@ jobs:
             bash .github/scripts/build.sh "${{ inputs.platform }}" 2>&1 | tee /tmp/build_retry.txt
             BUILD_EXIT=${PIPESTATUS[0]}
           fi
+
+          # Notify only after the final result (post-retry if applicable)
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            curl -sf --location 'https://api.onesignal.com/notifications' \
+              --header 'Content-Type: application/json' \
+              --header "Authorization: Basic ${ONESIGNALAPI}" \
+              --data "{\"app_id\": \"897e14e3-7897-4206-aa80-ee2fd35c7c0d\", \"include_subscription_ids\": [\"${ONESIGNAL_SUB_ID}\"], \"contents\": {\"en\": \"❌ Build failed for ${{ inputs.platform }}\"}}"
+          fi
+
           exit "$BUILD_EXIT"
 
   # ── Windows ────────────────────────────────────────────────────────────────
@@ -145,6 +162,15 @@ jobs:
             bash .github/scripts/build.sh Windows 2>&1 | tee /tmp/build_retry.txt
             BUILD_EXIT=${PIPESTATUS[0]}
           fi
+
+          # Notify only after the final result (post-retry if applicable)
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            curl -sf --location 'https://api.onesignal.com/notifications' \
+              --header 'Content-Type: application/json' \
+              --header "Authorization: Basic ${ONESIGNALAPI}" \
+              --data "{\"app_id\": \"897e14e3-7897-4206-aa80-ee2fd35c7c0d\", \"include_subscription_ids\": [\"${ONESIGNAL_SUB_ID}\"], \"contents\": {\"en\": \"❌ Build failed for Windows\"}}"
+          fi
+
           exit "$BUILD_EXIT"
 
   # ── Web (WASM → Firebase Hosting) ─────────────────────────────────────────
@@ -177,4 +203,13 @@ jobs:
             bash .github/scripts/build.sh Web 2>&1 | tee /tmp/build_retry.txt
             BUILD_EXIT=${PIPESTATUS[0]}
           fi
+
+          # Notify only after the final result (post-retry if applicable)
+          if [ "$BUILD_EXIT" -ne 0 ]; then
+            curl -sf --location 'https://api.onesignal.com/notifications' \
+              --header 'Content-Type: application/json' \
+              --header "Authorization: Basic ${ONESIGNALAPI}" \
+              --data "{\"app_id\": \"897e14e3-7897-4206-aa80-ee2fd35c7c0d\", \"include_subscription_ids\": [\"${ONESIGNAL_SUB_ID}\"], \"contents\": {\"en\": \"❌ Build failed for Web\"}}"
+          fi
+
           exit "$BUILD_EXIT"
