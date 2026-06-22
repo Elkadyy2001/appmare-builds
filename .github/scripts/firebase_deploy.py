@@ -80,15 +80,15 @@ print(">>> Access token obtained", flush=True)
 print(">>> Creating hosting version…", flush=True)
 version = _request(
     f"{HOSTING_API}/sites/{project}/versions",
-    {"config": {"headers": {
-        "**/*.html": {"Cache-Control": "no-cache, no-store, must-revalidate"},
-        "**/*.wasm": {"Cache-Control": "no-cache, no-store, must-revalidate"},
-        "**/*.dll":  {"Cache-Control": "public, max-age=604800"},
-        "**/*.png":  {"Cache-Control": "public, max-age=604800"},
-        "**/*.jpg":  {"Cache-Control": "public, max-age=604800"},
-        "**/*.css":  {"Cache-Control": "public, max-age=604800"},
-        "**/*.js":   {"Cache-Control": "public, max-age=604800"},
-    }}},
+    {"config": {"headers": [
+        {"glob": "**/*.html", "headers": {"Cache-Control": "no-cache, no-store, must-revalidate"}},
+        {"glob": "**/*.wasm", "headers": {"Cache-Control": "no-cache, no-store, must-revalidate"}},
+        {"glob": "**/*.dll",  "headers": {"Cache-Control": "public, max-age=604800"}},
+        {"glob": "**/*.png",  "headers": {"Cache-Control": "public, max-age=604800"}},
+        {"glob": "**/*.jpg",  "headers": {"Cache-Control": "public, max-age=604800"}},
+        {"glob": "**/*.css",  "headers": {"Cache-Control": "public, max-age=604800"}},
+        {"glob": "**/*.js",   "headers": {"Cache-Control": "public, max-age=604800"}},
+    ]}},
     token=access_token,
 )
 version_name = version["name"]
