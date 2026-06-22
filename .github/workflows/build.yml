@@ -70,24 +70,15 @@ jobs:
             echo "Artifacts found — would upload in separate step"
           fi
 
-          # If build failed, pass the full log to autofix
+          # If build failed, fix and retry on the same runner
           if [ "$BUILD_EXIT" -ne 0 ] && [ "${{ inputs.retry }}" == "false" ]; then
             bash .github/scripts/autofix.sh \
               --provider "${{ inputs.ai_provider }}" \
               --model    "${{ inputs.ai_model }}" \
               --api-key  "$AI_API_KEY" \
               --prompt   "GitHub Actions build failed for platform ${{ inputs.platform }}. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh or SampleApp/ files. Do NOT touch .github/workflows/build.yml."
-            git config user.email "bot@appmare.io"
-            git config user.name "AppMare Bot"
-            git add -A
-            git commit -m "Auto-fix: ${{ inputs.platform }}" && git push || echo "Nothing to commit"
-            gh workflow run build.yml \
-              -f platform="${{ inputs.platform }}" \
-              -f track="${{ inputs.track }}" \
-              -f env_id="${{ inputs.env_id }}" \
-              -f ai_provider="${{ inputs.ai_provider }}" \
-              -f ai_model="${{ inputs.ai_model }}" \
-              -f retry=true
+            bash .github/scripts/build.sh "${{ inputs.platform }}" 2>&1 | tee /tmp/build_retry.txt
+            BUILD_EXIT=${PIPESTATUS[0]}
           fi
 
           exit "$BUILD_EXIT"
@@ -113,29 +104,17 @@ jobs:
           AI_API_KEY:       ${{ secrets.AI_API_KEY }}
           GH_TOKEN:         ${{ secrets.PAT }}
         run: |
-          # Run the build, capture ALL output
           bash .github/scripts/build.sh "${{ inputs.platform }}" 2>&1 | tee /tmp/build_output.txt
           BUILD_EXIT=${PIPESTATUS[0]}
-
-          # If build failed, pass the full log to autofix
           if [ "$BUILD_EXIT" -ne 0 ] && [ "${{ inputs.retry }}" == "false" ]; then
             bash .github/scripts/autofix.sh \
               --provider "${{ inputs.ai_provider }}" \
               --model    "${{ inputs.ai_model }}" \
               --api-key  "$AI_API_KEY" \
               --prompt   "GitHub Actions build failed for platform ${{ inputs.platform }}. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh or SampleApp/ files. Do NOT touch .github/workflows/build.yml."
-            git config user.email "bot@appmare.io"
-            git config user.name "AppMare Bot"
-            git add -A
-            git commit -m "Auto-fix: ${{ inputs.platform }}" && git push || echo "Nothing to commit"
-            gh workflow run build.yml \
-              -f platform="${{ inputs.platform }}" \
-              -f env_id="${{ inputs.env_id }}" \
-              -f ai_provider="${{ inputs.ai_provider }}" \
-              -f ai_model="${{ inputs.ai_model }}" \
-              -f retry=true
+            bash .github/scripts/build.sh "${{ inputs.platform }}" 2>&1 | tee /tmp/build_retry.txt
+            BUILD_EXIT=${PIPESTATUS[0]}
           fi
-
           exit "$BUILD_EXIT"
 
   # ── Windows ────────────────────────────────────────────────────────────────
@@ -155,29 +134,17 @@ jobs:
           AI_API_KEY:       ${{ secrets.AI_API_KEY }}
           GH_TOKEN:         ${{ secrets.PAT }}
         run: |
-          # Run the build, capture ALL output
           bash .github/scripts/build.sh Windows 2>&1 | tee /tmp/build_output.txt
           BUILD_EXIT=${PIPESTATUS[0]}
-
-          # If build failed, pass the full log to autofix
           if [ "$BUILD_EXIT" -ne 0 ] && [ "${{ inputs.retry }}" == "false" ]; then
             bash .github/scripts/autofix.sh \
               --provider "${{ inputs.ai_provider }}" \
               --model    "${{ inputs.ai_model }}" \
               --api-key  "$AI_API_KEY" \
               --prompt   "GitHub Actions build failed for platform Windows. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh or SampleApp/ files. Do NOT touch .github/workflows/build.yml."
-            git config user.email "bot@appmare.io"
-            git config user.name "AppMare Bot"
-            git add -A
-            git commit -m "Auto-fix: Windows" && git push || echo "Nothing to commit"
-            gh workflow run build.yml \
-              -f platform="Windows" \
-              -f env_id="${{ inputs.env_id }}" \
-              -f ai_provider="${{ inputs.ai_provider }}" \
-              -f ai_model="${{ inputs.ai_model }}" \
-              -f retry=true
+            bash .github/scripts/build.sh Windows 2>&1 | tee /tmp/build_retry.txt
+            BUILD_EXIT=${PIPESTATUS[0]}
           fi
-
           exit "$BUILD_EXIT"
 
   # ── Web (WASM → Firebase Hosting) ─────────────────────────────────────────
@@ -199,27 +166,15 @@ jobs:
           AI_API_KEY:           ${{ secrets.AI_API_KEY }}
           GH_TOKEN:             ${{ secrets.PAT }}
         run: |
-          # Run the build + deploy, capture ALL output
           bash .github/scripts/build.sh Web 2>&1 | tee /tmp/build_output.txt
           BUILD_EXIT=${PIPESTATUS[0]}
-
-          # If build failed, pass the full log to autofix
           if [ "$BUILD_EXIT" -ne 0 ] && [ "${{ inputs.retry }}" == "false" ]; then
             bash .github/scripts/autofix.sh \
               --provider "${{ inputs.ai_provider }}" \
               --model    "${{ inputs.ai_model }}" \
               --api-key  "$AI_API_KEY" \
               --prompt   "GitHub Actions build failed for platform Web. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh or SampleApp.Browser/ files. Do NOT touch .github/workflows/build.yml."
-            git config user.email "bot@appmare.io"
-            git config user.name "AppMare Bot"
-            git add -A
-            git commit -m "Auto-fix: Web" && git push || echo "Nothing to commit"
-            gh workflow run build.yml \
-              -f platform="Web" \
-              -f env_id="${{ inputs.env_id }}" \
-              -f ai_provider="${{ inputs.ai_provider }}" \
-              -f ai_model="${{ inputs.ai_model }}" \
-              -f retry=true
+            bash .github/scripts/build.sh Web 2>&1 | tee /tmp/build_retry.txt
+            BUILD_EXIT=${PIPESTATUS[0]}
           fi
-
           exit "$BUILD_EXIT"
