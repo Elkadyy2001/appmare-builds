@@ -80,7 +80,15 @@ print(">>> Access token obtained", flush=True)
 print(">>> Creating hosting version…", flush=True)
 version = _request(
     f"{HOSTING_API}/sites/{project}/versions",
-    {"config": {"headers": []}},
+    {"config": {"headers": [
+        {"domain": "**/*.html",  "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]},
+        {"domain": "**/*.wasm",  "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]},
+        {"domain": "**/*.dll",   "headers": [{"key": "Cache-Control", "value": "public, max-age=604800"}]},
+        {"domain": "**/*.png",   "headers": [{"key": "Cache-Control", "value": "public, max-age=604800"}]},
+        {"domain": "**/*.jpg",   "headers": [{"key": "Cache-Control", "value": "public, max-age=604800"}]},
+        {"domain": "**/*.css",   "headers": [{"key": "Cache-Control", "value": "public, max-age=604800"}]},
+        {"domain": "**/*.js",    "headers": [{"key": "Cache-Control", "value": "public, max-age=604800"}]},
+    ]}},
     token=access_token,
 )
 version_name = version["name"]
