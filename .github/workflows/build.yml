@@ -158,7 +158,7 @@ jobs:
               --provider "${{ inputs.ai_provider }}" \
               --model    "${{ inputs.ai_model }}" \
               --api-key  "$AI_API_KEY" \
-              --prompt   "GitHub Actions build failed for platform Windows. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh and SampleApp/ files. Do NOT touch .github/workflows/build.yml. Only fix the bugs — do NOT run build.sh yourself.\n\nIMPORTANT: If you see casting errors with App.SharedVariables, look at how the variable is assigned in the code and find its real type. NEVER cast to dynamic — it breaks under AOT."
+              --prompt   "GitHub Actions build failed for platform Windows. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh and SampleApp/ files.  Do NOT touch .github/workflows/build.yml unless you are 100% sure that the problem on it. .\n\nIMPORTANT: If you see casting errors with App.SharedVariables, look at how the variable is assigned in the code and find its real type. NEVER cast to dynamic — it breaks under AOT."
             bash .github/scripts/build.sh Windows 2>&1 | tee /tmp/build_retry.txt
             BUILD_EXIT=${PIPESTATUS[0]}
           fi
@@ -199,7 +199,7 @@ jobs:
               --provider "${{ inputs.ai_provider }}" \
               --model    "${{ inputs.ai_model }}" \
               --api-key  "$AI_API_KEY" \
-              --prompt   "GitHub Actions build failed for platform Web. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh and SampleApp.Browser/ files. Do NOT touch .github/workflows/build.yml. Only fix the bugs — do NOT run build.sh yourself.\n\nIMPORTANT: If you see casting errors with App.SharedVariables, look at how the variable is assigned in the code and find its real type. NEVER cast to dynamic — it breaks under AOT."
+              --prompt   "GitHub Actions build failed for platform Web. Full output:\n$(cat /tmp/build_output.txt)\nFix .github/scripts/build.sh and SampleApp.Browser/ files. Do NOT touch .github/workflows/build.yml unless you are 100% sure that the problem on it . If you see casting errors with App.SharedVariables, look at how the variable is assigned in the code and find its real type. NEVER cast to dynamic — it breaks under AOT."
             bash .github/scripts/build.sh Web 2>&1 | tee /tmp/build_retry.txt
             BUILD_EXIT=${PIPESTATUS[0]}
           fi
