@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # AppMare AutoFix — runs OpenCode CLI to fix build errors
-# Usage: bash autofix.sh --provider <provider> --model <model> --api-key <key> --prompt "<text>"
+# Usage: bash autofix.sh --provider <provider> --model <model> --api-key <key> --prompt "<text>" [--build-cmd "<cmd>"]
 set -euo pipefail
 
 PROVIDER=""
 MODEL=""
 API_KEY=""
 PROMPT=""
+BUILD_CMD=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -14,6 +15,7 @@ while [[ $# -gt 0 ]]; do
         --model)     MODEL="$2";     shift 2 ;;
         --api-key)   API_KEY="$2";   shift 2 ;;
         --prompt)    PROMPT="$2";    shift 2 ;;
+        --build-cmd) BUILD_CMD="$2"; shift 2 ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
 done
@@ -58,8 +60,21 @@ esac
 
 echo ">>> Running OpenCode autofix  model=$PROVIDER/$MODEL"
 
+# Append build verification instruction if provided
+AUTOFIX_EXTRA=""
+if [ -n "$BUILD_CMD" ]; then
+    AUTOFIX_EXTRA="
+If the build error is a C# compilation error in the library code:
+  Fix it, then run: $BUILD_CMD
+  DO NOT return until this command succeeds (exit code 0).
+
+If the error is NOT library code (signing, credentials, SDK, environment):
+  Either fix the issue, or create a file called .autofix-needs-user.md
+  explaining what the user needs to do. Do NOT modify any other files in that case."
+fi
+
 # OpenCode model format is provider/model
 opencode run \
     -m "$PROVIDER/$MODEL" \
     --dangerously-skip-permissions \
-    "$PROMPT"
+    "${PROMPT}${AUTOFIX_EXTRA}"
