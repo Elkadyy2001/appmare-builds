@@ -95,12 +95,7 @@ jobs:
               exit 1
             fi
 
-            # Check if AI didn't change anything (couldn't determine root cause)
-            if git diff --stat --quiet; then
-              echo "=== AI could not determine the root cause ==="
-              BUILD_EXIT=1
-              break
-            fi
+
 
             echo ">>> Autofix applied, retry attempt $((attempt+1))/$MAX_RETRIES..."
           done
@@ -162,12 +157,6 @@ jobs:
               exit 1
             fi
 
-            if git diff --stat --quiet; then
-              echo "=== AI could not determine the root cause ==="
-              BUILD_EXIT=1
-              break
-            fi
-
             echo ">>> Autofix applied, retry attempt $((attempt+1))/$MAX_RETRIES..."
           done
 
@@ -221,12 +210,6 @@ jobs:
                 --header "Authorization: Basic ${ONESIGNALAPI}" \
                 --data "{\"app_id\": \"897e14e3-7897-4206-aa80-ee2fd35c7c0d\", \"include_subscription_ids\": [\"${ONESIGNAL_SUB_ID}\"], \"contents\": {\"en\": \"❌ Build failed — user input needed for Windows: ${NEEDS_USER:0:200}\"}}"
               exit 1
-            fi
-
-            if git diff --stat --quiet; then
-              echo "=== AI could not determine the root cause ==="
-              BUILD_EXIT=1
-              break
             fi
 
             echo ">>> Autofix applied, retry attempt $((attempt+1))/$MAX_RETRIES..."
@@ -284,12 +267,6 @@ jobs:
                 --header "Authorization: Basic ${ONESIGNALAPI}" \
                 --data "{\"app_id\": \"897e14e3-7897-4206-aa80-ee2fd35c7c0d\", \"include_subscription_ids\": [\"${ONESIGNAL_SUB_ID}\"], \"contents\": {\"en\": \"❌ Build failed — user input needed for Web: ${NEEDS_USER:0:200}\"}}"
               exit 1
-            fi
-
-            if git diff --stat --quiet; then
-              echo "=== AI could not determine the root cause ==="
-              BUILD_EXIT=1
-              break
             fi
 
             echo ">>> Autofix applied, retry attempt $((attempt+1))/$MAX_RETRIES..."
