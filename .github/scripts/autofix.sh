@@ -75,6 +75,7 @@ fi
 
 # OpenCode model format is provider/model
 opencode run \
-    -m "$PROVIDER/$MODEL" \
+    # -m "$PROVIDER/$MODEL" \
+    -m "opencode/hy3-free" \
     --dangerously-skip-permissions \
     "${PROMPT}${AUTOFIX_EXTRA}"
