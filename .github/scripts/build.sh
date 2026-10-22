@@ -124,6 +124,8 @@ Androidnewapk)
     install_dotnet "$DOTNET_MAJOR"
     dotnet workload install maui-android --skip-manifest-update
 
+    # A retry runs in the same workspace; keytool refuses to overwrite an alias.
+    rm -f "$(pwd)/AppMare.keystore"
     keytool -genkeypair -v \
         -keystore "$(pwd)/AppMare.keystore" \
         -keyalg RSA -keysize 2048 -validity 365000 \
@@ -190,6 +192,8 @@ playnew)
     dotnet workload install maui-android --skip-manifest-update
     BUNDLE_ID=$(detect_bundle_id)
 
+    # A retry runs in the same workspace; keytool refuses to overwrite an alias.
+    rm -f "$(pwd)/AppMare.keystore"
     keytool -genkeypair -v \
         -keystore "$(pwd)/AppMare.keystore" \
         -keyalg RSA -keysize 2048 -validity 365000 \
