@@ -22,10 +22,21 @@ detect_bundle_id() {
 install_dotnet() {
     local major="$1"
     echo ">>> Installing .NET ${major}.0..."
-    curl -fsSL https://dot.net/v1/dotnet-install.sh | \
-        bash -s -- --channel "${major}.0" --install-dir "$HOME/.dotnet"
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            # dotnet-install.sh can't detect Git Bash on Windows; use the PowerShell installer.
+            curl -fsSL -o dotnet-install.ps1 https://dot.net/v1/dotnet-install.ps1
+            powershell -NoProfile -ExecutionPolicy Bypass -File dotnet-install.ps1 \
+                -Channel "${major}.0" -InstallDir "$(cygpath -w "$HOME/.dotnet")"
+            export DOTNET_ROOT="$(cygpath -w "$HOME/.dotnet")"
+            ;;
+        *)
+            curl -fsSL https://dot.net/v1/dotnet-install.sh | \
+                bash -s -- --channel "${major}.0" --install-dir "$HOME/.dotnet"
+            export DOTNET_ROOT="$HOME/.dotnet"
+            ;;
+    esac
     export PATH="$HOME/.dotnet:$PATH"
-    export DOTNET_ROOT="$HOME/.dotnet"
     dotnet --version
 }
 
@@ -348,12 +359,13 @@ Windows)
 
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
+    dotnet workload install maui-windows --skip-manifest-update
 
     dotnet publish SampleApp/SampleApp.csproj \
         -f "net${DOTNET_MAJOR}.0-windows10.0.19041.0" \
         -p:TargetFrameworks="net${DOTNET_MAJOR}.0-windows10.0.19041.0" \
         -c Release \
-        -p:RuntimeIdentifierOverride=win10-x64 \
+        -p:RuntimeIdentifierOverride=win-x64 \
         -p:WindowsPackageType=None \
         -p:WindowsAppSDKSelfContained=true \
         -p:PublishSingleFile=true \
@@ -361,7 +373,7 @@ Windows)
         -p:PublishTrimmed=true \
         -p:TrimMode=partial
 
-    EXE=$(find SampleApp/bin/Release/net${DOTNET_MAJOR}.0-windows10.0.19041.0/win10-x64/publish \
+    EXE=$(find SampleApp/bin/Release/net${DOTNET_MAJOR}.0-windows10.0.19041.0/win-x64/publish \
         -name "*.exe" | head -1)
 
     set_env "exe-path" "$EXE"
