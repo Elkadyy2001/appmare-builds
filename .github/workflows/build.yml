@@ -120,6 +120,20 @@ jobs:
 
           exit "$BUILD_EXIT"
 
+
+      # Hand the build outputs to the server (it downloads this artifact by name).
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.platform }}-build
+          if-no-files-found: ignore
+          path: |
+            ${{ env.aab-path }}
+            ${{ env.apk-path }}
+            ${{ env.key-path }}
+            ${{ env.creds-path }}
+
   # ── Apple (iOS + macOS) ───────────────────────────────────────────────────
   apple:
     runs-on: macos-15
@@ -184,6 +198,18 @@ jobs:
 
           exit "$BUILD_EXIT"
 
+
+      # Hand the build outputs to the server (it downloads this artifact by name).
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.platform }}-build
+          if-no-files-found: ignore
+          path: |
+            ${{ env.ipa-path }}
+            ${{ env.pkg-path }}
+
   # ── Windows ────────────────────────────────────────────────────────────────
   windows:
     runs-on: windows-latest
@@ -246,6 +272,17 @@ jobs:
           fi
 
           exit "$BUILD_EXIT"
+
+
+      # Hand the build outputs to the server (it downloads this artifact by name).
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-build
+          if-no-files-found: ignore
+          path: |
+            ${{ env.exe-path }}
 
   # ── Web (WASM → Firebase Hosting) ─────────────────────────────────────────
   web:
