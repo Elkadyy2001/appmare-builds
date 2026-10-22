@@ -26,7 +26,9 @@ install_dotnet() {
         MINGW*|MSYS*|CYGWIN*)
             # dotnet-install.sh can't detect Git Bash on Windows; use the PowerShell installer.
             curl -fsSL -o dotnet-install.ps1 https://dot.net/v1/dotnet-install.ps1
-            powershell -NoProfile -ExecutionPolicy Bypass -File dotnet-install.ps1 \
+            # The installer shells out to tar; Git Bash's GNU tar reads "C:" as a remote
+            # host, so put Windows' own tar.exe (System32) first for this call.
+            PATH="/c/Windows/System32:$PATH" powershell -NoProfile -ExecutionPolicy Bypass -File dotnet-install.ps1 \
                 -Channel "${major}.0" -InstallDir "$(cygpath -w "$HOME/.dotnet")"
             export DOTNET_ROOT="$(cygpath -w "$HOME/.dotnet")"
             ;;
@@ -122,7 +124,7 @@ Androidnewapk)
     download_project
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    dotnet workload install maui-android
 
     # A retry runs in the same workspace; keytool refuses to overwrite an alias.
     rm -f "$(pwd)/AppMare.keystore"
@@ -161,7 +163,7 @@ androidkeystore)
     download_project
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    dotnet workload install maui-android
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
@@ -189,7 +191,7 @@ playnew)
     download_project
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    dotnet workload install maui-android
     BUNDLE_ID=$(detect_bundle_id)
 
     # A retry runs in the same workspace; keytool refuses to overwrite an alias.
@@ -235,7 +237,7 @@ playkey)
     download_project
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-android --skip-manifest-update
+    dotnet workload install maui-android
     BUNDLE_ID=$(detect_bundle_id)
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
@@ -363,7 +365,7 @@ Windows)
 
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
-    dotnet workload install maui-windows --skip-manifest-update
+    dotnet workload install maui-windows
 
     dotnet publish SampleApp/SampleApp.csproj \
         -f "net${DOTNET_MAJOR}.0-windows10.0.19041.0" \
