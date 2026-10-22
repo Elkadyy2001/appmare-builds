@@ -7,14 +7,15 @@ set -euo pipefail
 PLATFORM="${1:?Usage: build.sh <platform>}"
 
 # ── Detect .NET major version from csproj ─────────────────────────────────
+# grep -E only: the macOS runners ship BSD grep, which has no -P.
 detect_dotnet_major() {
-    grep -oP 'net\K\d+' SampleApp/SampleApp.csproj | sort -rn | head -1
+    grep -oE 'net[0-9]+\.0' SampleApp/SampleApp.csproj | grep -oE '[0-9]+' | sort -rn | head -1
 }
 
 # ── Detect bundle ID from csproj ──────────────────────────────────────────
 detect_bundle_id() {
-    grep -oP '(?<=<ApplicationId>)[^<]+' SampleApp/SampleApp.csproj | head -1 || \
-    grep -oP '(?<=<BundleIdentifier>)[^<]+' SampleApp/SampleApp.csproj | head -1
+    { grep -oE '<ApplicationId>[^<]+' SampleApp/SampleApp.csproj || \
+      grep -oE '<BundleIdentifier>[^<]+' SampleApp/SampleApp.csproj || true; } | head -1 | sed -E 's/<[^>]+>//'
 }
 
 # ── Install .NET SDK ───────────────────────────────────────────────────────
@@ -120,6 +121,7 @@ Androidnewapk)
         -dname    "cn=Appmare"
 
     dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-android" \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -151,6 +153,7 @@ androidkeystore)
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
     dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-android" \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -184,6 +187,7 @@ playnew)
         -dname    "cn=Appmare"
 
     dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-android" \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -222,6 +226,7 @@ playkey)
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
     dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-android" \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -262,6 +267,7 @@ IOS)
     PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
 
     dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-ios" -c Release \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-ios" \
         -p:ArchiveOnBuild=true \
         -p:RuntimeIdentifier=ios-arm64 \
         -p:CodesignKey="$CODE_SIGNING_KEY" \
@@ -303,6 +309,7 @@ MAC)
     PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
 
     dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-maccatalyst" -c Release \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-maccatalyst" \
         -p:CreatePackage=true \
         -p:EnableCodeSigning=true \
         -p:EnablePackageSigning=true \
@@ -344,6 +351,7 @@ Windows)
 
     dotnet publish SampleApp/SampleApp.csproj \
         -f "net${DOTNET_MAJOR}.0-windows10.0.19041.0" \
+        -p:TargetFrameworks="net${DOTNET_MAJOR}.0-windows10.0.19041.0" \
         -c Release \
         -p:RuntimeIdentifierOverride=win10-x64 \
         -p:WindowsPackageType=None \
