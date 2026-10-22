@@ -119,7 +119,7 @@ Androidnewapk)
         -alias    "$KEYSTOREALIAS" \
         -dname    "cn=Appmare"
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-android" -c Release \
+    dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -150,7 +150,7 @@ androidkeystore)
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-android" -c Release \
+    dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -183,7 +183,7 @@ playnew)
         -alias    "$KEYSTOREALIAS" \
         -dname    "cn=Appmare"
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-android" -c Release \
+    dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -221,7 +221,7 @@ playkey)
 
     wget -q -O "$(pwd)/AppMare.keystore" "$KEYURL"
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-android" -c Release \
+    dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-android" -c Release \
         -p:AndroidKeyStore=true \
         -p:AndroidSigningKeyStore="$(pwd)/AppMare.keystore" \
         -p:AndroidSigningKeyAlias="$KEYSTOREALIAS" \
@@ -261,7 +261,7 @@ IOS)
         | grep '"' | head -n1 | awk -F '"' '{print $2}')
     PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-ios" -c Release \
+    dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-ios" -c Release \
         -p:ArchiveOnBuild=true \
         -p:RuntimeIdentifier=ios-arm64 \
         -p:CodesignKey="$CODE_SIGNING_KEY" \
@@ -302,7 +302,7 @@ MAC)
         | grep '3rd Party Mac Developer Installer' | head -n1 | awk -F '"' '{print $2}')
     PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-maccatalyst" -c Release \
+    dotnet publish SampleApp/SampleApp.csproj -f "net${DOTNET_MAJOR}.0-maccatalyst" -c Release \
         -p:CreatePackage=true \
         -p:EnableCodeSigning=true \
         -p:EnablePackageSigning=true \
@@ -342,7 +342,7 @@ Windows)
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
 
-    dotnet publish \
+    dotnet publish SampleApp/SampleApp.csproj \
         -f "net${DOTNET_MAJOR}.0-windows10.0.19041.0" \
         -c Release \
         -p:RuntimeIdentifierOverride=win10-x64 \
@@ -372,7 +372,7 @@ Web)
     
     dotnet workload restore SampleApp/SampleApp.csproj
 
-    dotnet publish -f "net${DOTNET_MAJOR}.0-browser" -c Release
+    dotnet publish SampleApp.Browser/SampleApp.Browser.csproj -f "net${DOTNET_MAJOR}.0-browser" -c Release
 
     export WWWROOT=$(find . -path "*/publish/wwwroot" -type d | head -1)
 
