@@ -201,6 +201,9 @@ jobs:
           AI_API_KEY:       ${{ secrets.AI_API_KEY }}
           GH_TOKEN:         ${{ secrets.PAT }}
         run: |
+          # shell: bash runs with -e -o pipefail here; let a failed attempt reach the
+          # report + auto-fix below instead of ending the step.
+          set +e +o pipefail
           MAX_RETRIES=5
           for ((attempt=1; attempt<=MAX_RETRIES; attempt++)); do
             bash .github/scripts/build.sh Windows 2>&1 | tee /tmp/build_output.txt
