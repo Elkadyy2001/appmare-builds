@@ -83,7 +83,7 @@ jobs:
 
             # Post the failure to the live feed issue before auto-fix starts, so the
             # real build error can be read while the run is still going.
-            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo '```'; tail -c 60000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
+            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo 'Errors:'; echo '```'; grep -E ' error |error:|ERROR' /tmp/build_output.txt | sort -u | head -150; echo '```'; echo 'Log tail:'; echo '```'; tail -c 40000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
             GH_TOKEN="${{ github.token }}" gh issue comment 1 -R "${{ github.repository }}" --body-file /tmp/build_report.md || true
 
             bash .github/scripts/autofix.sh \
@@ -165,7 +165,7 @@ jobs:
 
             # Post the failure to the live feed issue before auto-fix starts, so the
             # real build error can be read while the run is still going.
-            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo '```'; tail -c 60000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
+            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo 'Errors:'; echo '```'; grep -E ' error |error:|ERROR' /tmp/build_output.txt | sort -u | head -150; echo '```'; echo 'Log tail:'; echo '```'; tail -c 40000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
             GH_TOKEN="${{ github.token }}" gh issue comment 1 -R "${{ github.repository }}" --body-file /tmp/build_report.md || true
 
             bash .github/scripts/autofix.sh \
@@ -240,7 +240,7 @@ jobs:
 
             # Post the failure to the live feed issue before auto-fix starts, so the
             # real build error can be read while the run is still going.
-            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo '```'; tail -c 60000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
+            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo 'Errors:'; echo '```'; grep -E ' error |error:|ERROR' /tmp/build_output.txt | sort -u | head -150; echo '```'; echo 'Log tail:'; echo '```'; tail -c 40000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
             GH_TOKEN="${{ github.token }}" gh issue comment 1 -R "${{ github.repository }}" --body-file /tmp/build_report.md || true
 
             bash .github/scripts/autofix.sh \
@@ -313,7 +313,7 @@ jobs:
 
             # Post the failure to the live feed issue before auto-fix starts, so the
             # real build error can be read while the run is still going.
-            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo '```'; tail -c 60000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
+            { echo "**${{ inputs.platform }}** build failed (attempt $attempt): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; echo 'Errors:'; echo '```'; grep -E ' error |error:|ERROR' /tmp/build_output.txt | sort -u | head -150; echo '```'; echo 'Log tail:'; echo '```'; tail -c 40000 /tmp/build_output.txt; echo '```'; } > /tmp/build_report.md
             GH_TOKEN="${{ github.token }}" gh issue comment 1 -R "${{ github.repository }}" --body-file /tmp/build_report.md || true
 
             bash .github/scripts/autofix.sh \
