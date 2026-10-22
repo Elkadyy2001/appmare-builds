@@ -1,0 +1,46 @@
+name: Pack AppMareMaui (Windows)
+
+# The AppMareMaui library only gets its net*-windows target when it is built on
+# Windows, and the shipped package was packed on a Mac. This builds the Windows
+# target here so it can be merged into the package the app template uses.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version for this Windows-only pack'
+        type: string
+        default: '1.0.6'
+
+jobs:
+  pack:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install .NET 11
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+          ./dotnet-install.ps1 -Channel 11.0 -InstallDir "$env:USERPROFILE\.dotnet"
+          "$env:USERPROFILE\.dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "DOTNET_ROOT=$env:USERPROFILE\.dotnet" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install MAUI Windows workload
+        shell: pwsh
+        run: |
+          dotnet --version
+          dotnet workload install maui-windows
+
+      - name: Pack Windows target
+        shell: pwsh
+        run: |
+          dotnet pack tools/AppMareMaui/AppMareMaui.csproj -c Release `
+            -p:TargetFrameworks=net11.0-windows10.0.19041.0 `
+            -p:Version=${{ inputs.version }} `
+            -p:GeneratePackageOnBuild=false `
+            -o out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appmaremaui-windows
+          path: out/*.nupkg
