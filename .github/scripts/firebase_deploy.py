@@ -80,14 +80,12 @@ print(">>> Access token obtained", flush=True)
 print(">>> Creating hosting version…", flush=True)
 version = _request(
     f"{HOSTING_API}/sites/{project}/versions",
+    # Asset names are not fingerprinted (WasmFingerprintAssets=false) and dotnet.js
+    # carries the integrity hash of every assembly, so a cached dotnet.js from the
+    # previous deploy rejects the new SampleApp*.wasm and the app shows a blank page.
+    # "no-cache" keeps the cached copy but revalidates it (a cheap 304 when unchanged).
     {"config": {"headers": [
-        {"glob": "**/*.html", "headers": {"Cache-Control": "no-cache, no-store, must-revalidate"}},
-        {"glob": "**/*.wasm", "headers": {"Cache-Control": "no-cache, no-store, must-revalidate"}},
-        {"glob": "**/*.dll",  "headers": {"Cache-Control": "public, max-age=604800"}},
-        {"glob": "**/*.png",  "headers": {"Cache-Control": "public, max-age=604800"}},
-        {"glob": "**/*.jpg",  "headers": {"Cache-Control": "public, max-age=604800"}},
-        {"glob": "**/*.css",  "headers": {"Cache-Control": "public, max-age=604800"}},
-        {"glob": "**/*.js",   "headers": {"Cache-Control": "public, max-age=604800"}},
+        {"glob": "**", "headers": {"Cache-Control": "no-cache"}},
     ]}},
     token=access_token,
 )
