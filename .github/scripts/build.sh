@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # AppMare Build Script — handles all platforms
 # Usage: bash build.sh <platform>
-# Platforms: Androidnewapk | androidkeystore | playnew | playkey | IOS | MAC | Windows
+# Platforms: Androidnewapk | androidkeystore | playnew | playkey | IOS | MAC | Windows | Web | WebServer
 set -euo pipefail
 
 PLATFORM="${1:?Usage: build.sh <platform>}"
@@ -110,6 +110,46 @@ install_apple_signing() {
 
 # ── Set artifact paths as GitHub env vars ─────────────────────────────────
 set_env() { echo "${1}=${2}" >> "$GITHUB_ENV"; }
+
+# ── Website (MauiWeb): the app on a server, pages sent as real HTML ───────
+# SampleApp.Web published with NativeAOT for linux-x64: one native binary, no .dll files.
+# Packaged in web-site/ (binary "site", Resources/, Dockerfile) and web-site.tar.gz, which the
+# deploy steps (Cloud Run, Azure App Service) take from here.
+build_web_server() {
+    download_project
+    DOTNET_MAJOR=$(detect_dotnet_major)
+    install_dotnet "$DOTNET_MAJOR"
+    # NativeAOT links with clang; zlib for System.IO.Compression.
+    if ! command -v clang &>/dev/null || ! dpkg -s zlib1g-dev &>/dev/null; then
+        sudo apt-get update -qq && sudo apt-get install -y -qq clang zlib1g-dev
+    fi
+
+    # AppMareWebsite=true: the app project builds only net11.0 (no mobile workloads needed here).
+    dotnet publish SampleApp.Web/SampleApp.Web.csproj -c Release -r linux-x64 -p:AppMareWebsite=true -o out/web
+
+    rm -rf web-site && mkdir -p web-site
+    cp out/web/SampleApp.Web web-site/site
+    chmod +x web-site/site
+    [ -d out/web/Resources ] && cp -R out/web/Resources web-site/
+    [ -d out/web/wwwroot ] && cp -R out/web/wwwroot web-site/
+    # Never ship symbols or managed leftovers.
+    find web-site -name "*.dll" -o -name "*.pdb" -o -name "*.dbg" | xargs rm -f
+
+    cat > web-site/Dockerfile <<'DOCKER'
+# The site is one native binary: only the OS libraries .NET needs (glibc, OpenSSL, ICU).
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
+WORKDIR /app
+COPY . .
+ENV PORT=8080
+EXPOSE 8080
+USER $APP_UID
+ENTRYPOINT ["/app/site"]
+DOCKER
+
+    tar czf web-site.tar.gz -C web-site .
+    ls -la web-site
+    echo ">>> Website built: $(du -sh web-site | cut -f1)"
+}
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Platform builds
@@ -407,6 +447,15 @@ Web)
 
     set_env "web-url" "https://${FIREBASE_PROJECT_ID}.web.app"
     notify "✅ Web app live at https://${FIREBASE_PROJECT_ID}.web.app"
+    ;;
+
+# ─────────────────────────────────────────────────────────────────────────
+# Website (MauiWeb) → web-site.tar.gz artifact; deploy targets build on this
+# ─────────────────────────────────────────────────────────────────────────
+WebServer)
+    build_web_server
+    set_env "web-artifact" "web-site.tar.gz"
+    notify "✅ Website built"
     ;;
 
 *)
