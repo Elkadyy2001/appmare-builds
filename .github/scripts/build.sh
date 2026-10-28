@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # AppMare Build Script — handles all platforms
 # Usage: bash build.sh <platform>
-# Platforms: Androidnewapk | androidkeystore | playnew | playkey | IOS | MAC | Windows | Web | WebServer
+# Platforms: Androidnewapk | androidkeystore | playnew | playkey | IOS | MAC | Windows | Web | WebServer | WebCloudRunDeploy | WebAzureDeploy
 set -euo pipefail
 
 PLATFORM="${1:?Usage: build.sh <platform>}"
@@ -115,17 +115,38 @@ set_env() { echo "${1}=${2}" >> "$GITHUB_ENV"; }
 # SampleApp.Web published with NativeAOT for linux-x64: one native binary, no .dll files.
 # Packaged in web-site/ (binary "site", Resources/, Dockerfile) and web-site.tar.gz, which the
 # deploy steps (Cloud Run, Azure App Service) take from here.
-build_web_server() {
-    download_project
+# The binary links against the build machine's glibc: built on Ubuntu 22.04 (glibc 2.35) it also
+# runs on Debian 12 (Azure App Service's image, glibc 2.36) and on anything newer.
+publish_web_server() {
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
     # NativeAOT links with clang; zlib for System.IO.Compression.
     if ! command -v clang &>/dev/null || ! dpkg -s zlib1g-dev &>/dev/null; then
-        sudo apt-get update -qq && sudo apt-get install -y -qq clang zlib1g-dev
+        $SUDO apt-get update -qq && DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq clang zlib1g-dev
     fi
-
     # AppMareWebsite=true: the app project builds only net11.0 (no mobile workloads needed here).
     dotnet publish SampleApp.Web/SampleApp.Web.csproj -c Release -r linux-x64 -p:AppMareWebsite=true -o out/web
+}
+
+build_web_server() {
+    download_project
+    if [ -z "${APPMARE_IN_CONTAINER:-}" ] && command -v docker &>/dev/null; then
+        # The runner keeps a .NET SDK too: the auto-fix agent builds there.
+        install_dotnet "$(detect_dotnet_major)"
+        mkdir -p "$HOME/.nuget/packages"
+        docker run --rm -e APPMARE_IN_CONTAINER=1 -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 \
+            -v "$PWD:/w" -v "$HOME/.nuget/packages:/root/.nuget/packages" -w /w ubuntu:22.04 bash -c '
+                set -e
+                apt-get update -qq
+                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates libicu70 clang zlib1g-dev >/dev/null
+                status=0
+                bash .github/scripts/build.sh WebPublish || status=$?
+                # Hand the outputs back to the runner user.
+                chown -R '"$(id -u):$(id -g)"' /w /root/.nuget/packages
+                exit $status'
+    else
+        SUDO=$(command -v sudo || true) publish_web_server
+    fi
 
     rm -rf web-site && mkdir -p web-site
     cp out/web/SampleApp.Web web-site/site
@@ -452,10 +473,47 @@ Web)
 # ─────────────────────────────────────────────────────────────────────────
 # Website (MauiWeb) → web-site.tar.gz artifact; deploy targets build on this
 # ─────────────────────────────────────────────────────────────────────────
+# Inside the Ubuntu 22.04 container of build_web_server.
+WebPublish)
+    SUDO="" publish_web_server
+    ;;
+
 WebServer)
     build_web_server
     set_env "web-artifact" "web-site.tar.gz"
-    notify "✅ Website built"
+    # A deploy target reports when the site is live instead.
+    [ -z "${WEB_DEPLOY_TARGET:-}" ] && notify "✅ Website built"
+    ;;
+
+# ─────────────────────────────────────────────────────────────────────────
+# Website → the member's Google Cloud Run (after WebServer built web-site/).
+# A separate step from the build: only it holds AppMare's deploy key.
+# ─────────────────────────────────────────────────────────────────────────
+WebCloudRunDeploy)
+    [ -f web-site/site ] || { echo "web-site/ is missing: run build.sh WebServer first"; exit 1; }
+    CLOUDRUN="$(dirname "$0")/cloudrun_deploy.py"
+    # AppMare's own registry and service account (the member gave it access to their project).
+    IMAGE=$(python3 "$CLOUDRUN" image)
+    REGISTRY="${IMAGE%%/*}"
+    python3 "$CLOUDRUN" token | docker login -u oauth2accesstoken --password-stdin "https://${REGISTRY}"
+    docker build -t "$IMAGE" web-site
+    docker push "$IMAGE"
+    WEB_URL=$(python3 "$CLOUDRUN" deploy "$IMAGE")
+    echo ">>> Website live at $WEB_URL"
+    set_env "web-url" "$WEB_URL"
+    notify "✅ Website live at $WEB_URL"
+    ;;
+
+# ─────────────────────────────────────────────────────────────────────────
+# Website → the member's Azure App Service (after WebServer built web-site/).
+# A separate step from the build: only it holds the member's Microsoft sign-in.
+# ─────────────────────────────────────────────────────────────────────────
+WebAzureDeploy)
+    [ -f web-site/site ] || { echo "web-site/ is missing: run build.sh WebServer first"; exit 1; }
+    WEB_URL=$(python3 "$(dirname "$0")/azure_deploy.py" deploy web-site)
+    echo ">>> Website live at $WEB_URL"
+    set_env "web-url" "$WEB_URL"
+    notify "✅ Website live at $WEB_URL"
     ;;
 
 *)
