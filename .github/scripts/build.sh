@@ -19,6 +19,16 @@ detect_bundle_id() {
 }
 
 # ── Install .NET SDK ───────────────────────────────────────────────────────
+# .NET 11 is pinned: the newest preview (rc.3) fails every build with NETSDK1147 (maui-tizen).
+# Override with DOTNET_SDK_VERSION when moving to a newer SDK.
+DOTNET11_SDK_VERSION="${DOTNET_SDK_VERSION:-11.0.100-rc.2.26504.105}"
+sdk_version_args() {
+    if [ "$1" = "11" ]; then
+        [ "$2" = "ps" ] && echo "-Version $DOTNET11_SDK_VERSION" || echo "--version $DOTNET11_SDK_VERSION"
+    else
+        [ "$2" = "ps" ] && echo "-Channel $1.0" || echo "--channel $1.0"
+    fi
+}
 install_dotnet() {
     local major="$1"
     echo ">>> Installing .NET ${major}.0..."
@@ -29,12 +39,12 @@ install_dotnet() {
             # The installer shells out to tar; Git Bash's GNU tar reads "C:" as a remote
             # host, so put Windows' own tar.exe (System32) first for this call.
             PATH="/c/Windows/System32:$PATH" powershell -NoProfile -ExecutionPolicy Bypass -File dotnet-install.ps1 \
-                -Channel "${major}.0" -InstallDir "$(cygpath -w "$HOME/.dotnet")"
+                $(sdk_version_args "$major" ps) -InstallDir "$(cygpath -w "$HOME/.dotnet")"
             export DOTNET_ROOT="$(cygpath -w "$HOME/.dotnet")"
             ;;
         *)
             curl -fsSL https://dot.net/v1/dotnet-install.sh | \
-                bash -s -- --channel "${major}.0" --install-dir "$HOME/.dotnet"
+                bash -s -- $(sdk_version_args "$major" sh) --install-dir "$HOME/.dotnet"
             export DOTNET_ROOT="$HOME/.dotnet"
             ;;
     esac
