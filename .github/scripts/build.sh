@@ -127,6 +127,23 @@ set_env() { echo "${1}=${2}" >> "$GITHUB_ENV"; }
 # deploy steps (Cloud Run, Azure App Service) take from here.
 # The binary links against the build machine's glibc: built on Ubuntu 22.04 (glibc 2.35) it also
 # runs on Debian 12 (Azure App Service's image, glibc 2.36) and on anything newer.
+# A fresh .NET 11 SDK has no Microsoft.Maui.Sdk pack, so a net11.0 project with UseMaui fails with
+# NETSDK1147 ("maui-tizen" is just the first workload that contains it). Install only that pack,
+# at the version of the MAUI workload manifest in use — no mobile or Tizen workloads needed.
+ensure_maui_sdk_pack() {
+    dotnet workload update >/dev/null 2>&1 || true
+    local root="${DOTNET_ROOT:-$HOME/.dotnet}" manifest version dest
+    manifest=$(ls -d "$root"/sdk-manifests/*/microsoft.net.sdk.maui/* 2>/dev/null | sort -V | tail -1)
+    [ -z "$manifest" ] && return 0
+    version=$(basename "$manifest")
+    dest="$root/packs/Microsoft.Maui.Sdk/$version"
+    [ -d "$dest" ] && return 0
+    echo ">>> Installing Microsoft.Maui.Sdk pack $version"
+    mkdir -p "$dest"
+    curl -fsSL "https://api.nuget.org/v3-flatcontainer/microsoft.maui.sdk/$version/microsoft.maui.sdk.$version.nupkg" -o /tmp/maui-sdk.nupkg
+    (cd "$dest" && unzip -q -o /tmp/maui-sdk.nupkg)
+}
+
 publish_web_server() {
     DOTNET_MAJOR=$(detect_dotnet_major)
     install_dotnet "$DOTNET_MAJOR"
@@ -134,6 +151,8 @@ publish_web_server() {
     if ! command -v clang &>/dev/null || ! dpkg -s zlib1g-dev &>/dev/null; then
         $SUDO apt-get update -qq && DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq clang zlib1g-dev
     fi
+    command -v unzip &>/dev/null || { $SUDO apt-get update -qq && DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq unzip; }
+    ensure_maui_sdk_pack
     # AppMareWebsite=true: the app project builds only net11.0 (no mobile workloads needed here).
     dotnet publish SampleApp.Web/SampleApp.Web.csproj -c Release -r linux-x64 -p:AppMareWebsite=true -o out/web
 }
@@ -143,12 +162,13 @@ build_web_server() {
     if [ -z "${APPMARE_IN_CONTAINER:-}" ] && command -v docker &>/dev/null; then
         # The runner keeps a .NET SDK too: the auto-fix agent builds there.
         install_dotnet "$(detect_dotnet_major)"
+        ensure_maui_sdk_pack
         mkdir -p "$HOME/.nuget/packages"
         docker run --rm -e APPMARE_IN_CONTAINER=1 -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 \
             -v "$PWD:/w" -v "$HOME/.nuget/packages:/root/.nuget/packages" -w /w ubuntu:22.04 bash -c '
                 set -e
                 apt-get update -qq
-                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates libicu70 clang zlib1g-dev >/dev/null
+                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates libicu70 clang zlib1g-dev unzip >/dev/null
                 status=0
                 bash .github/scripts/build.sh WebPublish || status=$?
                 # Hand the outputs back to the runner user.
